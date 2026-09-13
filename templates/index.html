@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detector de voz — Altur / IAVoz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #15121c;
+    --panel: #1e1928;
+    --panel-2: #262032;
+    --line: #362c47;
+    --text: #f1ecf7;
+    --text-dim: #a99cc2;
+    --gold: #c9a35c;
+    --gold-dim: #8f7440;
+    --green: #5fd6a5;
+    --red: #e2687c;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; color-scheme: dark; }
+  body{
+    margin:0;
+    background:
+      radial-gradient(1100px 560px at 12% -12%, rgba(201,163,92,0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(95,214,165,0.05), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    display:flex;
+    justify-content:center;
+    padding: 48px 20px 80px;
+  }
+  main{ width:100%; max-width: 720px; }
+
+  header{ margin-bottom: 40px; }
+  .kicker{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--gold);
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+  h1{
+    font-size: 30px;
+    font-weight: 600;
+    margin: 0 0 10px;
+    line-height: 1.25;
+  }
+  header p{
+    color: var(--text-dim);
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 58ch;
+    margin: 0;
+  }
+
+  .drop{
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    padding: 36px 28px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+    position: relative;
+    display: block;
+  }
+  .drop:hover, .drop.dragover{
+    border-color: var(--gold-dim);
+    background: var(--panel-2);
+  }
+  .drop svg{ margin-bottom: 14px; opacity: .8; }
+  .drop .titulo{ font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .drop .sub{ font-size: 13px; color: var(--text-dim); }
+  .drop input{ display:none; }
+
+  .archivo-elegido{
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 13px;
+  }
+  .archivo-elegido.activo{ display:flex; }
+  .archivo-elegido span.nombre{ color: var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .archivo-elegido button{
+    background:none; border:none; color: var(--text-dim); cursor:pointer;
+    font-family:inherit; font-size:13px; flex-shrink:0;
+  }
+  .archivo-elegido button:hover{ color: var(--red); }
+
+  .analizar{
+    width:100%;
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: 8px;
+    border: none;
+    background: var(--gold);
+    color: #221a0c;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background .15s ease, transform .05s ease;
+  }
+  .analizar:hover:not(:disabled){ background:#dab876; }
+  .analizar:active:not(:disabled){ transform: scale(0.99); }
+  .analizar:disabled{ background: var(--panel-2); color: var(--text-dim); cursor: not-allowed; }
+
+  .resultado{
+    display:none;
+    margin-top: 28px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .resultado.activo{ display:block; }
+
+  .veredicto{
+    padding: 26px 28px;
+    border-bottom: 1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 20px;
+  }
+  .veredicto .etiqueta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .veredicto .valor{ font-size: 26px; font-weight: 700; }
+  .valor.humano{ color: var(--green); }
+  .valor.sintetico{ color: var(--red); }
+
+  .confianza{ text-align:right; }
+  .confianza .num{ font-family:'IBM Plex Mono', monospace; font-size: 26px; font-weight: 500; }
+  .barra{
+    width: 140px;
+    height: 6px;
+    background: var(--panel-2);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .barra .relleno{ height:100%; border-radius: 3px; transition: width .4s ease; }
+
+  .detalle{ padding: 20px 28px 26px; }
+  .detalle .fila-meta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  .grid-features{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+  }
+  .feature{
+    display:flex;
+    justify-content:space-between;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 13.5px;
+  }
+  .feature .k{ color: var(--text-dim); }
+  .feature .v{ font-family:'IBM Plex Mono', monospace; color: var(--text); }
+
+  .error{
+    display:none;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(226,104,124,0.35);
+    background: rgba(226,104,124,0.08);
+    color: #f3b3c0;
+    font-size: 13.5px;
+  }
+  .error.activo{ display:block; }
+
+  footer{
+    margin-top: 40px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    text-align:center;
+  }
+
+  @media (max-width: 480px){
+    .grid-features{ grid-template-columns: 1fr; }
+    .veredicto{ flex-direction: column; align-items:flex-start; }
+    .confianza{ text-align:left; }
+    .barra{ width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="kicker">DETECTOR_VOZ · HackMTY26 · Altur</div>
+    <h1>¿Quién está del otro lado de la línea?</h1>
+    <p>Sube una llamada grabada (WAV estéreo, canal 0 = cliente, canal 1 = agente) y el sistema analiza el habla y el ritmo de la conversación para decidir si el llamante es una persona real o una voz sintética.</p>
+  </header>
+
+  <form id="form-analisis">
+    <label class="drop" id="drop" for="input-archivo">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#c9a35c" stroke-width="1.6">
+        <path d="M9 18V5l12-2v13" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="6" cy="18" r="3"/>
+        <circle cx="18" cy="16" r="3"/>
+      </svg>
+      <div class="titulo">Arrastra un archivo .wav aquí</div>
+      <div class="sub">o haz clic para elegirlo desde tu equipo</div>
+      <input type="file" id="input-archivo" accept=".wav,audio/wav">
+    </label>
+
+    <div class="archivo-elegido" id="archivo-elegido">
+      <span class="nombre" id="nombre-archivo"></span>
+      <button type="button" id="quitar-archivo">Quitar</button>
+    </div>
+
+    <button class="analizar" id="btn-analizar" type="submit" disabled>Analizar llamada</button>
+  </form>
+
+  <div class="error" id="caja-error"></div>
+
+  <div class="resultado" id="resultado">
+    <div class="veredicto">
+      <div>
+        <div class="etiqueta">VEREDICTO</div>
+        <div class="valor" id="txt-veredicto">—</div>
+      </div>
+      <div class="confianza">
+        <div class="etiqueta">CONFIANZA</div>
+        <div class="num" id="txt-confianza">—</div>
+        <div class="barra"><div class="relleno" id="barra-confianza"></div></div>
+      </div>
+    </div>
+    <div class="detalle">
+      <div class="fila-meta" id="txt-latencia"></div>
+      <div class="grid-features" id="grid-features"></div>
+    </div>
+  </div>
+
+  <footer>POST /detect · confianza = qué tan seguro está el sistema del veredicto mostrado</footer>
+</main>
+
+<script>
+const drop = document.getElementById('drop');
+const inputArchivo = document.getElementById('input-archivo');
+const archivoElegido = document.getElementById('archivo-elegido');
+const nombreArchivo = document.getElementById('nombre-archivo');
+const quitarArchivo = document.getElementById('quitar-archivo');
+const btnAnalizar = document.getElementById('btn-analizar');
+const form = document.getElementById('form-analisis');
+const cajaError = document.getElementById('caja-error');
+const resultado = document.getElementById('resultado');
+
+let archivoActual = null;
+
+function elegirArchivo(file){
+  if(!file) return;
+  archivoActual = file;
+  nombreArchivo.textContent = file.name;
+  archivoElegido.classList.add('activo');
+  btnAnalizar.disabled = false;
+  cajaError.classList.remove('activo');
+}
+
+inputArchivo.addEventListener('change', e => elegirArchivo(e.target.files[0]));
+
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault();
+  drop.classList.add('dragover');
+}));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault();
+  drop.classList.remove('dragover');
+}));
+drop.addEventListener('drop', e => {
+  const file = e.dataTransfer.files[0];
+  if(file) elegirArchivo(file);
+});
+
+quitarArchivo.addEventListener('click', () => {
+  archivoActual = null;
+  inputArchivo.value = '';
+  archivoElegido.classList.remove('activo');
+  btnAnalizar.disabled = true;
+});
+
+function arrayBufferABase64(buffer){
+  let binario = '';
+  const bytes = new Uint8Array(buffer);
+  const trozo = 0x8000;
+  for(let i=0; i<bytes.length; i+=trozo){
+    binario += String.fromCharCode.apply(null, bytes.subarray(i, i+trozo));
+  }
+  return btoa(binario);
+}
+
+const ETIQUETAS_FEATURES = {
+  f0_std: 'Estabilidad de tono (std F0)',
+  jitter: 'Jitter (temblor de pitch)',
+  variabilidad_pausas: 'Variabilidad de pausas',
+  ratio_pausas_respiracion: 'Pausas tipo respiración',
+  latencia_respuesta_media: 'Latencia de respuesta (s)',
+  latencia_respuesta_std: 'Variabilidad de latencia',
+  ratio_solape_habla: 'Solape con el agente',
+  recuperacion_std: 'Variabilidad al recuperar turno',
+};
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if(!archivoActual) return;
+
+  btnAnalizar.disabled = true;
+  btnAnalizar.textContent = 'Analizando…';
+  cajaError.classList.remove('activo');
+  resultado.classList.remove('activo');
+
+  try{
+    const buffer = await archivoActual.arrayBuffer();
+    const b64 = arrayBufferABase64(buffer);
+
+    const inicio = performance.now();
+    const resp = await fetch('/detect?detalle=1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audio: b64 }),
+    });
+    const ms = Math.round(performance.now() - inicio);
+    const datos = await resp.json();
+
+    if(!resp.ok){
+      throw new Error(datos.error || 'Ocurrió un error al analizar el audio.');
+    }
+
+    mostrarResultado(datos, ms);
+  }catch(err){
+    cajaError.textContent = err.message || 'No se pudo contactar al servidor.';
+    cajaError.classList.add('activo');
+  }finally{
+    btnAnalizar.disabled = false;
+    btnAnalizar.textContent = 'Analizar llamada';
+  }
+});
+
+function mostrarResultado(datos, msCliente){
+  const esSintetico = !!datos.is_synthetic;
+  // El servidor ya manda "confidence" como confianza en ESTE veredicto
+  // (no la probabilidad cruda de sintético), así que se usa tal cual.
+  const confianzaVeredicto = typeof datos.confidence === 'number' ? datos.confidence : 0.5;
+
+  const txtVeredicto = document.getElementById('txt-veredicto');
+  txtVeredicto.textContent = esSintetico ? 'Voz sintética' : 'Humano';
+  txtVeredicto.className = 'valor ' + (esSintetico ? 'sintetico' : 'humano');
+
+  document.getElementById('txt-confianza').textContent = Math.round(confianzaVeredicto * 100) + '%';
+  const relleno = document.getElementById('barra-confianza');
+  relleno.style.width = Math.round(confianzaVeredicto * 100) + '%';
+  relleno.style.background = esSintetico ? 'var(--red)' : 'var(--green)';
+
+  document.getElementById('txt-latencia').textContent =
+    `Analizado en ${msCliente} ms (ida y vuelta)`;
+
+  const grid = document.getElementById('grid-features');
+  grid.innerHTML = '';
+  const features = datos.features || {};
+  Object.keys(ETIQUETAS_FEATURES).forEach(llave => {
+    if(!(llave in features)) return;
+    const val = features[llave];
+    const fila = document.createElement('div');
+    fila.className = 'feature';
+    fila.innerHTML = `<span class="k">${ETIQUETAS_FEATURES[llave]}</span><span class="v">${Number(val).toFixed(4)}</span>`;
+    grid.appendChild(fila);
+  });
+
+  resultado.classList.add('activo');
+}
+</script>
+</body>
+</html>

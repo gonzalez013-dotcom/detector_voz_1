@@ -1,0 +1,7 @@
+dataset/
+modelo.pkl 
+features_cache.csv
+venv/
+venv/
+__pycache__/
+prueba.wav
